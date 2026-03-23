@@ -1,0 +1,74 @@
+pipeline:
+  name: fastapi-ci-pipeline
+  identifier: fastapi_ci_pipeline
+  projectIdentifier: default_project
+  orgIdentifier: default
+  tags:
+    app: fastapi
+    language: python
+  properties:
+    ci:
+      codebase:
+        connectorRef: github_ajaydhiman07
+        repoName: harness-fastapi-poc
+        build: <+input>
+  stages:
+    - stage:
+        name: build-and-test
+        identifier: build_and_test
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Install Dependencies
+                  identifier: install_dependencies
+                  spec:
+                    shell: Sh
+                    command: |
+                      python -m pip install --upgrade pip
+                      pip install -r requirements.txt
+              - step:
+                  type: Run
+                  name: Lint
+                  identifier: lint
+                  spec:
+                    shell: Sh
+                    command: |
+                      pip install flake8
+                      flake8 app/ --max-line-length=120 --ignore=E501,W503
+              - step:
+                  type: Run
+                  name: Run Tests
+                  identifier: run_tests
+                  spec:
+                    shell: Sh
+                    command: |
+                      pip install pytest httpx
+                      mkdir -p test-results
+                      pytest tests/ -v --junit-xml=test-results/results.xml
+                    reports:
+                      type: JUnit
+                      spec:
+                        paths:
+                          - test-results/results.xml
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build and Push Docker Image
+                  identifier: build_and_push
+                  spec:
+                    connectorRef: dockerhub_ajaydhiman07
+                    repo: ajaydhiman07/harness-fastapi-poc
+                    tags:
+                      - latest
+                      - <+pipeline.sequenceId>
+                    dockerfile: Dockerfile
+                    context: .
