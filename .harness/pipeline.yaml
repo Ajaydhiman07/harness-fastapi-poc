@@ -1,7 +1,7 @@
 pipeline:
   name: fastapi-ci-pipeline
   identifier: fastapi_ci_pipeline
-  projectIdentifier: default               # ← Update if your Harness project ID differs
+  projectIdentifier: default_project
   orgIdentifier: default
   tags:
     app: fastapi
