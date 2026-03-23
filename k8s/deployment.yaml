@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: fastapi
-          image: YOUR_DOCKERHUB_USERNAME/harness-fastapi-poc:latest   # ← Harness will replace this tag
+          image: ajaydhiman07/harness-fastapi-poc:latest
           ports:
             - containerPort: 8000
           livenessProbe:

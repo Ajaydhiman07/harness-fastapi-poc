@@ -1,7 +1,7 @@
 pipeline:
   name: fastapi-ci-pipeline
   identifier: fastapi_ci_pipeline
-  projectIdentifier: YOUR_PROJECT_ID        # ← Replace
+  projectIdentifier: default               # ← Update if your Harness project ID differs
   orgIdentifier: default
   tags:
     app: fastapi
@@ -9,8 +9,8 @@ pipeline:
   properties:
     ci:
       codebase:
-        connectorRef: YOUR_GITHUB_CONNECTOR  # ← Replace with your GitHub connector ID
-        repoName: harness-fastapi-poc        # ← Replace with your repo name
+        connectorRef: github_ajaydhiman07    # ← Update after creating GitHub connector in Harness
+        repoName: ajaydhiman07/harness-fastapi-poc
         build: <+input>
 
   stages:
@@ -89,8 +89,8 @@ pipeline:
                   name: Build and Push Docker Image
                   identifier: build_and_push
                   spec:
-                    connectorRef: YOUR_DOCKERHUB_CONNECTOR   # ← Replace
-                    repo: YOUR_DOCKERHUB_USERNAME/harness-fastapi-poc  # ← Replace
+                    connectorRef: dockerhub_ajaydhiman07     # ← Update after creating DockerHub connector in Harness
+                    repo: ajaydhiman07/harness-fastapi-poc
                     tags:
                       - latest
                       - <+pipeline.sequenceId>
