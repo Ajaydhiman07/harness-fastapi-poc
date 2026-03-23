@@ -1,0 +1,148 @@
+pipeline:
+  name: fastapi-ci-pipeline
+  identifier: fastapi_ci_pipeline
+  projectIdentifier: YOUR_PROJECT_ID        # ← Replace
+  orgIdentifier: default
+  tags:
+    app: fastapi
+    language: python
+  properties:
+    ci:
+      codebase:
+        connectorRef: YOUR_GITHUB_CONNECTOR  # ← Replace with your GitHub connector ID
+        repoName: harness-fastapi-poc        # ← Replace with your repo name
+        build: <+input>
+
+  stages:
+
+    # ═══════════════════════════════
+    # STAGE 1 — CI: Test & Build
+    # ═══════════════════════════════
+    - stage:
+        name: build-and-test
+        identifier: build_and_test
+        type: CI
+        spec:
+          cloneCodebase: true
+
+          # Using Harness Cloud (free hosted runners) — no delegate needed
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+
+          # Cache pip dependencies between runs
+          caching:
+            enabled: true
+            key: pip-cache-{{ checksum "requirements.txt" }}
+            paths:
+              - /root/.cache/pip
+
+          execution:
+            steps:
+
+              # Step 1 — Install Python dependencies
+              - step:
+                  type: Run
+                  name: Install Dependencies
+                  identifier: install_dependencies
+                  spec:
+                    shell: Sh
+                    command: |
+                      python -m pip install --upgrade pip
+                      pip install --cache-dir /root/.cache/pip -r requirements.txt
+                    envVariables:
+                      PIP_CACHE_DIR: /root/.cache/pip
+
+              # Step 2 — Lint with flake8
+              - step:
+                  type: Run
+                  name: Lint (flake8)
+                  identifier: lint
+                  spec:
+                    shell: Sh
+                    command: |
+                      pip install flake8
+                      flake8 app/ --max-line-length=120 --ignore=E501,W503
+
+              # Step 3 — Run Pytest with JUnit report
+              - step:
+                  type: Run
+                  name: Run Tests
+                  identifier: run_tests
+                  spec:
+                    shell: Sh
+                    command: |
+                      pip install pytest pytest-asyncio httpx
+                      pytest tests/ -v --junit-xml=test-results/results.xml
+                    reports:
+                      type: JUnit
+                      spec:
+                        paths:
+                          - test-results/results.xml
+
+              # Step 4 — Build & Push Docker image
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build and Push Docker Image
+                  identifier: build_and_push
+                  spec:
+                    connectorRef: YOUR_DOCKERHUB_CONNECTOR   # ← Replace
+                    repo: YOUR_DOCKERHUB_USERNAME/harness-fastapi-poc  # ← Replace
+                    tags:
+                      - latest
+                      - <+pipeline.sequenceId>
+                    dockerfile: Dockerfile
+                    context: .
+                    buildArgs:
+                      BUILD_DATE: <+pipeline.executionId>
+
+    # ═══════════════════════════════
+    # STAGE 2 — CD: Deploy
+    # ═══════════════════════════════
+    - stage:
+        name: deploy-dev
+        identifier: deploy_dev
+        type: Deployment
+        spec:
+          deploymentType: Kubernetes   # or SSH for VM-based deploy
+          service:
+            serviceRef: fastapi_service
+            serviceInputs:
+              serviceDefinition:
+                type: Kubernetes
+                spec:
+                  artifacts:
+                    primary:
+                      primaryArtifactRef: <+input>
+                      sources: <+input>
+          environment:
+            environmentRef: dev_environment
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: dev_k8s_infra
+          execution:
+            steps:
+              - step:
+                  name: Rollout Deployment
+                  identifier: rolloutDeployment
+                  type: K8sRollingDeploy
+                  timeout: 10m
+                  spec:
+                    skipDryRun: false
+            rollbackSteps:
+              - step:
+                  name: Rollback Rollout Deployment
+                  identifier: rollbackRolloutDeployment
+                  type: K8sRollingRollback
+                  timeout: 10m
+                  spec: {}
+        tags: {}
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: StageRollback

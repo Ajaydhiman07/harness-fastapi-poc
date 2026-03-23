@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: harness-fastapi-poc
+  labels:
+    app: harness-fastapi-poc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: harness-fastapi-poc
+  template:
+    metadata:
+      labels:
+        app: harness-fastapi-poc
+    spec:
+      containers:
+        - name: fastapi
+          image: YOUR_DOCKERHUB_USERNAME/harness-fastapi-poc:latest   # ← Harness will replace this tag
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: harness-fastapi-svc
+spec:
+  selector:
+    app: harness-fastapi-poc
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: LoadBalancer
